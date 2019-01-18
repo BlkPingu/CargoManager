@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDirs = ["src/main/java"]
+            includes = ["**/*.fxml","**/*.png"]
+        }
+    }
+}
+
+group 'prog3'
+version '0.1'
+mainClassName='Client'
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.1'
+    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.1.0'
+}
