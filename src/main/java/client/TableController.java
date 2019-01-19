@@ -3,6 +3,7 @@ package client;
 import enums.Hazard;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -17,19 +18,15 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
 import serialization.IO;
 import serialization.SaveObject;
-import server.Server;
 import server.TableObject;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
+import javax.xml.crypto.Data;
+import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
-import java.io.IOException;
 import java.net.*;
 
 
@@ -69,13 +66,17 @@ public class TableController implements Initializable {
     @FXML private RadioButton explosive;
 
 
+    final ObservableList<TableObject> tableData = FXCollections.observableArrayList();
+
+
     public void startClient() {
         try {
-            Socket client = new Socket("localhost", 1337);
+            Socket client = new Socket("localhost", 7000);
             DataOutputStream out = new DataOutputStream(client.getOutputStream());
             out.writeUTF("Hi i'm " + client.getLocalSocketAddress());
-            DataInputStream in = new DataInputStream(client.getInputStream());
-            System.out.println(in.readUTF());
+            DataInputStream input = new DataInputStream(client.getInputStream());
+            byte[] sent = input.readAllBytes();
+            getDataFromClient(input.readAllByes());
             client.close();
 
 
@@ -86,21 +87,36 @@ public class TableController implements Initializable {
         }
     }
 
-    //requests list from server
-    public ObservableList<TableObject> getDataFromClient(){
+
+    public ArrayList<SaveObject> toObject (byte[] bytes){
+        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+        ObjectInput in = null;
         try {
-            return null;
-        } catch (Exception ex) {
-            throw new NotImplementedException();
+            in = new ObjectInputStream(bis);
+            Object o = in.readObject();
+            ArrayList<SaveObject> list = (ArrayList<SaveObject>) o;
+            return list;
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (in != null) {
+                    in.close();
+                }
+            } catch (IOException ex) {
+            }
         }
+        return null;
     }
 
 
-
-
-
-
-
+    //requests list from server
+    public void getDataFromClient(ArrayList<SaveObject> tol){
+        tableData.clear();
+        for (SaveObject so: tol)  tableData.add(new SaveObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties());
+    }
 
     //HIER TCP
     /**
@@ -141,10 +157,10 @@ public class TableController implements Initializable {
      * @param actionEvent
      */
     public void openItem(ActionEvent actionEvent) {
-        //server.getTableData().clear();
+        tableData.clear();
         ArrayList<SaveObject> saveObjects = IO.loadE("file.txt");
         for (SaveObject so: saveObjects) {
-            //server.getTableData().add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
+            tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
         }
         populateTable();
     }
@@ -157,7 +173,7 @@ public class TableController implements Initializable {
     public void saveItem(ActionEvent actionEvent) {
         ArrayList<SaveObject> saveObjectArrayList = new ArrayList<>();
 
-        //for (TableObject to: server.getTableData())  saveObjectArrayList.add(new SaveObject(to.getType(), to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
+        for (TableObject to: tableData)  saveObjectArrayList.add(new SaveObject(to.getType(), to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
 
         IO.saveE("file.txt", saveObjectArrayList);
         System.out.println("all saved");

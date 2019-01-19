@@ -15,7 +15,9 @@ sourceSets {
 group 'prog3'
 version '0.1'
 mainClassName='Client'
+
 sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
