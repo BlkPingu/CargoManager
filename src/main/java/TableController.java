@@ -68,15 +68,18 @@ public class TableController implements Initializable {
 
     final ObservableList<TableObject> tableData = FXCollections.observableArrayList();
 
+    /**
+    Socket client = new Socket("localhost", 1337);
+    DataOutputStream out = new DataOutputStream(client.getOutputStream());
+    out.writeUTF("Hi i'm " + client.getLocalSocketAddress());
+    **/
 
     public void startClient() {
         try {
             Socket client = new Socket("localhost", 1337);
-            DataOutputStream out = new DataOutputStream(client.getOutputStream());
-            out.writeUTF("Hi i'm " + client.getLocalSocketAddress());
             DataInputStream input = new DataInputStream(client.getInputStream());
-            byte[] sent = input.readAllBytes();
-            getDataFromClient(toObject(sent));
+            byte[] recieved = input.readAllBytes();
+            getDataFromClient(toObject(recieved));
             client.close();
 
 
@@ -110,7 +113,6 @@ public class TableController implements Initializable {
         }
         return null;
     }
-
 
     //requests list from server
     public void getDataFromClient(ArrayList<SaveObject> tol){
