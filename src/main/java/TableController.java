@@ -1,5 +1,3 @@
-package client;
-
 import enums.Hazard;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
@@ -17,10 +15,9 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
 import serialization.IO;
-import serialization.SaveObject;
-import server.TableObject;
+import classes.SaveObject;
+import classes.TableObject;
 
-import javax.xml.crypto.Data;
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
@@ -68,21 +65,29 @@ public class TableController implements Initializable {
 
     final ObservableList<TableObject> tableData = FXCollections.observableArrayList();
 
-    /**
-    Socket client = new Socket("localhost", 1337);
-    DataOutputStream out = new DataOutputStream(client.getOutputStream());
-    out.writeUTF("Hi i'm " + client.getLocalSocketAddress());
-    **/
 
-    public void startClient() {
+    public void addData(TableObject tableObject){
+        sendCode("A");
+        sendObject(tableObject);
+    }
+
+    public void deleteData(TableObject tableObject) {
+        sendCode("C");
+        sendObject(tableObject);
+    }
+
+    public void getServerData() throws IOException {
+        sendCode("B");
+        Socket client = new Socket("localhost", 1337);
+        populateClientList(toObject(new DataInputStream(client.getInputStream()).readAllBytes()));
+        client.close();
+    }
+
+    public void sendObject(TableObject tableObject){
         try {
             Socket client = new Socket("localhost", 1337);
-            DataInputStream input = new DataInputStream(client.getInputStream());
-            byte[] recieved = input.readAllBytes();
-            getDataFromClient(toObject(recieved));
+            new DataOutputStream(client.getOutputStream()).write(toBytes(tableObject));
             client.close();
-
-
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -90,8 +95,59 @@ public class TableController implements Initializable {
         }
     }
 
+    public void populateClientList(ArrayList<SaveObject> tol){
+        tableData.clear();
+        for (SaveObject so: tol)  tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
+    }
 
-    public ArrayList<SaveObject> toObject (byte[] bytes){
+
+
+    public void sendCode(String code){
+        try {
+            Socket client = new Socket("localhost", 1337);
+            DataOutputStream dos = new DataOutputStream(client.getOutputStream());
+            dos.writeChars(code);
+            client.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void addCargoToList(ActionEvent actionEvent) {
+        int pos = Integer.parseInt(position.getText());
+        int siz = Integer.parseInt(size.getText());
+        TableObject obj = new TableObject(type.getText(), customerName.getText(), pos, siz, radioactive.isSelected(), flammable.isSelected(), toxic.isSelected(), explosive.isSelected(), pressurizedArmed() + solidArmed() + fragileArmed());
+
+        addData(obj);
+        populateTable();
+    }
+
+    //TCP fertig
+    public void populateTable(){
+        typeCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Type"));
+        customerCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Customer"));
+        positionCol.setCellValueFactory(new PropertyValueFactory<TableObject, Integer>("Position"));
+        sizeCol.setCellValueFactory(new PropertyValueFactory<TableObject, Integer>("Size"));
+        radioactiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("radioactive"));
+        flammableCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("flammable"));
+        toxicCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("toxic"));
+        explosiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("explosive"));
+        propertiesCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Properties"));
+
+
+        tableData.clear();
+        try {
+            getServerData();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        cargoTable.setItems(tableData);
+    }
+
+
+
+    public ArrayList<SaveObject> toObject (byte[] bytes) throws IOException{
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
         ObjectInput in = null;
         try {
@@ -99,8 +155,7 @@ public class TableController implements Initializable {
             Object o = in.readObject();
             ArrayList<SaveObject> sol = (ArrayList<SaveObject>) o;
             return sol;
-        } catch (IOException e) {
-            e.printStackTrace();
+
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } finally {
@@ -114,46 +169,40 @@ public class TableController implements Initializable {
         return null;
     }
 
-    //requests list from server
-    public void getDataFromClient(ArrayList<SaveObject> tol){
-        tableData.clear();
-        for (SaveObject so: tol)  tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
+
+    public byte[] toBytes(TableObject to) throws IOException{
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutput out = null;
+        try {
+            out = new ObjectOutputStream(bos);
+            out.writeObject(tableObject2SaveObject(to));
+            out.flush();
+            byte[] bytes = bos.toByteArray();
+            return bytes;
+        }  finally {
+            try {
+                bos.close();
+            } catch (IOException ex) {
+            }
+        }
     }
 
-    //HIER TCP
-    /**
-     *
-     * @param tableObject
-     */
-    public void addData(TableObject tableObject){
-        //server.getTableData().add(tableObject);
-    }
-
-
-    //HIER TCP
-    /**
-     *
-     * @param tableObject
-     */
-    public void deleteData(TableObject tableObject) {
-        //server.getTableData().remove(tableObject);
+    public SaveObject tableObject2SaveObject(TableObject to){
+        return new SaveObject(to.getType(), to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties());
     }
 
 
-    //HIER TCP
     /**
-     *
+     * save a List of Cargo
      * @param actionEvent
      */
-    public void addCargoToList(ActionEvent actionEvent) {
-        int pos = Integer.parseInt(position.getText());
-        int siz = Integer.parseInt(size.getText());
-        TableObject obj = new TableObject(type.getText(), customerName.getText(), pos, siz, radioactive.isSelected(), flammable.isSelected(), toxic.isSelected(), explosive.isSelected(), pressurizedArmed() + solidArmed() + fragileArmed());
-        addData(obj);
-        populateTable();
+    public void saveItem(ActionEvent actionEvent) {
+        ArrayList<SaveObject> saveObjectArrayList = new ArrayList<>();
+        for (TableObject to: tableData)  saveObjectArrayList.add(new SaveObject(to.getType(),
+                to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
+        IO.saveE("file.txt", saveObjectArrayList);
+        System.out.println("all saved");
     }
-
-    //HIER TCP
     /**
      * Load a List of Cargo
      * @param actionEvent
@@ -162,26 +211,17 @@ public class TableController implements Initializable {
         tableData.clear();
         ArrayList<SaveObject> saveObjects = IO.loadE("file.txt");
         for (SaveObject so: saveObjects) {
-            tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
+            tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(),
+                    so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
         }
         populateTable();
     }
 
-    //HIER TCP
-    /**
-     * save a List of Cargo
-     * @param actionEvent
-     */
-    public void saveItem(ActionEvent actionEvent) {
-        ArrayList<SaveObject> saveObjectArrayList = new ArrayList<>();
 
-        for (TableObject to: tableData)  saveObjectArrayList.add(new SaveObject(to.getType(), to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
+    //---------------------------------------
 
-        IO.saveE("file.txt", saveObjectArrayList);
-        System.out.println("all saved");
-    }
 
-    //HIER TCP
+
     @FXML
     private void deleteRowFromTable(ActionEvent event){
         int index = cargoTable.getSelectionModel().getSelectedIndex();
@@ -189,29 +229,8 @@ public class TableController implements Initializable {
         System.out.println("Print Customer Name of Deleted: " + tableObj.getCustomer());
         cargoTable.getItems().removeAll(cargoTable.getSelectionModel().getSelectedItem());
         deleteData(tableObj);
+        populateTable();
     }
-
-    //HIER TCP
-    public void populateTable(){
-        typeCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Type"));
-        customerCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Customer"));
-        positionCol.setCellValueFactory(new PropertyValueFactory<TableObject, Integer>("Position"));
-        sizeCol.setCellValueFactory(new PropertyValueFactory<TableObject, Integer>("Size"));
-        radioactiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("radioactive"));
-        flammableCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("flammable"));
-        toxicCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("toxic"));
-        explosiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("explosive"));
-        propertiesCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Properties"));
-
-        cargoTable.setItems(tableData);
-    }
-
-
-
-
-
-
-
 
     /**
      * Handle action related to input (in this case specifically only responds to
@@ -238,9 +257,6 @@ public class TableController implements Initializable {
 
     @Override
     public void initialize(URL arg0, ResourceBundle arg1) {
-
-        startClient();
-
         disableAll();
         populateTable();
         bindAddButton();

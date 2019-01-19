@@ -1,4 +1,4 @@
-package server;
+package classes;
 
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;

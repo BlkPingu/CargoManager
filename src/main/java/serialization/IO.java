@@ -1,5 +1,7 @@
 package serialization;
 
+import classes.SaveObject;
+
 import java.io.*;
 import java.util.ArrayList;
 

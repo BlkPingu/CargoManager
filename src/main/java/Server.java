@@ -1,12 +1,7 @@
-package server;
-
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import serialization.IO;
-import serialization.SaveObject;
+import classes.TableObject;
+import classes.SaveObject;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.*;
 import java.util.ArrayList;
 
@@ -22,7 +17,7 @@ public class Server {
 
 
 
-    public byte[] toBytes(ArrayList<SaveObject> sol){
+    public byte[] toBytes(ArrayList<SaveObject> sol) throws IOException{
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutput out = null;
         try {
@@ -31,19 +26,16 @@ public class Server {
             out.flush();
             byte[] bytes = bos.toByteArray();
             return bytes;
-        } catch (IOException e) {
-            e.printStackTrace();
         } finally {
             try {
                 bos.close();
             } catch (IOException ex) {
             }
         }
-        return null;
     }
 
 
-    public ArrayList<TableObject> toObject (byte[] bytes){
+    public ArrayList<TableObject> toObject (byte[] bytes) throws IOException{
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
         ObjectInput in = null;
         try {
@@ -51,8 +43,6 @@ public class Server {
             Object o = in.readObject();
             ArrayList<TableObject> list = (ArrayList<TableObject>) o;
             return list;
-        } catch (IOException e) {
-            e.printStackTrace();
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } finally {
@@ -86,11 +76,8 @@ public class Server {
     public void running(){
         while(true){
             try {
-                System.out.println("waiting for client" + server.getLocalPort());
                 Socket client = server.accept();
                 DataInputStream inputStream = new DataInputStream(client.getInputStream());
-                System.out.println(inputStream.readUTF());
-                System.out.println(client.getRemoteSocketAddress());
                 DataOutputStream outputStream = new DataOutputStream(client.getOutputStream());
 
 
@@ -99,9 +86,15 @@ public class Server {
                 addData(new SaveObject("Boxed", "Frank", 8, 5, false, true, false, true, "--F"));
                 addData(new SaveObject("Boxed", "Frank", 3, 15, false, true, false, true, "--F"));
                 addData(new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
+                addData(new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
+
+
+
 
                 outputStream.write(toBytes(tableObjects));
 
+
+                //switch()
                 client.close();
             } catch (IOException e) {
                 e.printStackTrace();
