@@ -71,12 +71,12 @@ public class TableController implements Initializable {
 
     public void startClient() {
         try {
-            Socket client = new Socket("localhost", 7000);
+            Socket client = new Socket("localhost", 1337);
             DataOutputStream out = new DataOutputStream(client.getOutputStream());
             out.writeUTF("Hi i'm " + client.getLocalSocketAddress());
             DataInputStream input = new DataInputStream(client.getInputStream());
             byte[] sent = input.readAllBytes();
-            getDataFromClient(input.readAllByes());
+            getDataFromClient(toObject(sent));
             client.close();
 
 
@@ -94,8 +94,8 @@ public class TableController implements Initializable {
         try {
             in = new ObjectInputStream(bis);
             Object o = in.readObject();
-            ArrayList<SaveObject> list = (ArrayList<SaveObject>) o;
-            return list;
+            ArrayList<SaveObject> sol = (ArrayList<SaveObject>) o;
+            return sol;
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
@@ -115,7 +115,7 @@ public class TableController implements Initializable {
     //requests list from server
     public void getDataFromClient(ArrayList<SaveObject> tol){
         tableData.clear();
-        for (SaveObject so: tol)  tableData.add(new SaveObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties());
+        for (SaveObject so: tol)  tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
     }
 
     //HIER TCP
@@ -201,7 +201,7 @@ public class TableController implements Initializable {
         explosiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("explosive"));
         propertiesCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Properties"));
 
-        //cargoTable.setItems(server.getTableData());
+        cargoTable.setItems(tableData);
     }
 
 
@@ -236,12 +236,6 @@ public class TableController implements Initializable {
 
     @Override
     public void initialize(URL arg0, ResourceBundle arg1) {
-
-        //repopulated objects
-        addData(new TableObject("Liquid", "Dave", 5, 10, true, true, false, true, "P--" ));
-        addData(new TableObject("Boxed", "Frank", 8, 5, false, true, false, true, "--F"));
-        addData(new TableObject("Boxed", "Frank", 3, 15, false, true, false, true, "--F"));
-        addData(new TableObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
 
         startClient();
 

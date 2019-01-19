@@ -17,14 +17,10 @@ public class Server {
     private ServerSocket server;
 
 
-    ArrayList<TableObject> tableObjects = new ArrayList<>();
+    public ArrayList<SaveObject> tableObjects = new ArrayList<>();
 
 
-    public ArrayList<SaveObject> tableObject2SaveObject(ArrayList<TableObject> tol){
-        ArrayList<SaveObject> sol = new ArrayList<>();
-        for (TableObject to: tol)  sol.add(new SaveObject(to.getType(), to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
-        return sol;
-    }
+
 
     public byte[] toBytes(ArrayList<SaveObject> sol){
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -82,6 +78,11 @@ public class Server {
         }
     }
 
+
+    public void addData(SaveObject so){
+        tableObjects.add(so);
+    }
+
     public void running(){
         while(true){
             try {
@@ -91,7 +92,16 @@ public class Server {
                 System.out.println(inputStream.readUTF());
                 System.out.println(client.getRemoteSocketAddress());
                 DataOutputStream outputStream = new DataOutputStream(client.getOutputStream());
+
+
+                //adding test data
+                addData(new SaveObject("Liquid", "Dave", 5, 10, true, true, false, true, "P--" ));
+                addData(new SaveObject("Boxed", "Frank", 8, 5, false, true, false, true, "--F"));
+                addData(new SaveObject("Boxed", "Frank", 3, 15, false, true, false, true, "--F"));
+                addData(new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
+
                 outputStream.write(toBytes(tableObjects));
+
                 client.close();
             } catch (IOException e) {
                 e.printStackTrace();
