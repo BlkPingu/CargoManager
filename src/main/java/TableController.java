@@ -63,15 +63,14 @@ public class TableController implements Initializable {
     @FXML private RadioButton explosive;
 
     final ObservableList<TableObject> tableData = FXCollections.observableArrayList();
+    final ArrayList<SaveObject> saveObjects = new ArrayList<>();
 
-    public void addData(TableObject tableObject) throws IOException {
+    public void addData(SaveObject saveObject) throws IOException {
         Socket client = new Socket("localhost", 1337);
         sendCode(client,'A');
-        sendObject(client,tableObject);
-        System.out.println("AddData: New Object sent to server:" + tableObject);
+        sendObject(client,saveObject);
         client.close();
-        System.out.println("addData() end");
-        System.out.println("----------");
+        populateTable();
 
     }
 
@@ -80,26 +79,22 @@ public class TableController implements Initializable {
         sendCode(client,'B');
         populateClientList(toObject(new DataInputStream(client.getInputStream()).readAllBytes()));
         client.close();
-        System.out.println("getServerData() end");
-        System.out.println("----------");
 
     }
 
-    public void deleteData(TableObject tableObject) throws IOException {
+    public void deleteData(SaveObject so) throws IOException {
         Socket client = new Socket("localhost", 1337);
         sendCode(client,'C');
-        sendObject(client,tableObject);
+        sendObject(client,so);
         client.close();
-        System.out.println("deleteData() end");
-        System.out.println("----------");
-
+        populateTable();
     }
 
 
 
-    public void sendObject(Socket socket, TableObject tableObject){
+    public void sendObject(Socket socket, SaveObject saveObject){
         try {
-            new DataOutputStream(socket.getOutputStream()).write(toBytes(tableObject));
+            new DataOutputStream(socket.getOutputStream()).write(toBytes(saveObject));
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -120,14 +115,13 @@ public class TableController implements Initializable {
     public void addCargoToList(ActionEvent actionEvent) {
         int pos = Integer.parseInt(position.getText());
         int siz = Integer.parseInt(size.getText());
-        TableObject obj = new TableObject(type.getText(), customerName.getText(), pos, siz, radioactive.isSelected(), flammable.isSelected(), toxic.isSelected(), explosive.isSelected(), pressurizedArmed() + solidArmed() + fragileArmed());
+        SaveObject obj = new SaveObject(type.getText(), customerName.getText(), pos, siz, radioactive.isSelected(), flammable.isSelected(), toxic.isSelected(), explosive.isSelected(), pressurizedArmed() + solidArmed() + fragileArmed());
 
         try {
             addData(obj);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        populateTable();
     }
 
     public void populateTable(){
@@ -147,26 +141,17 @@ public class TableController implements Initializable {
             e.printStackTrace();
         }
         cargoTable.setItems(tableData);
-        System.out.println("populateTable() end");
-        System.out.println("----------");
     }
 
     public void populateClientList(ArrayList<SaveObject> tol){
-        System.out.println("Server side List size:" + tol.size() );
-        System.out.println("Current Client list size:" + tableData.size());
 
         tableData.clear();
+        saveObjects.clear();
 
-        System.out.println("< CLEARED CLIENT LIST >");
         for (SaveObject so: tol){
-            TableObject to = new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties());
-            tableData.add(to);
-            System.out.println("Recieving Object from Server:" + to.toString());
+            saveObjects.add(so);
+            tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
         }
-        System.out.println("New Client list size:" + tableData.size());
-        System.out.println("populateClientList() end");
-        System.out.println("----------");
-
     }
 
     public ArrayList<SaveObject> toObject (byte[] bytes) throws IOException{
@@ -192,12 +177,12 @@ public class TableController implements Initializable {
     }
 
 
-    public byte[] toBytes(TableObject to) throws IOException{
+    public byte[] toBytes(SaveObject so) throws IOException{
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutput out = null;
         try {
             out = new ObjectOutputStream(bos);
-            out.writeObject(tableObject2SaveObject(to));
+            out.writeObject(so);
             out.flush();
             byte[] bytes = bos.toByteArray();
             return bytes;
@@ -214,21 +199,14 @@ public class TableController implements Initializable {
     }
 
 
-    /**
-     * save a List of Cargo
-     * @param actionEvent
-     */
     public void saveItem(ActionEvent actionEvent) {
         ArrayList<SaveObject> saveObjectArrayList = new ArrayList<>();
-        for (TableObject to: tableData)  saveObjectArrayList.add(new SaveObject(to.getType(),
-                to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
+        for (TableObject to : tableData)
+            saveObjectArrayList.add(new SaveObject(to.getType(),
+                    to.getCustomer(), to.getPosition(), to.getSize(), to.isRadioactive(), to.isFlammable(), to.isToxic(), to.isExplosive(), to.getProperties()));
         IO.saveE("file.txt", saveObjectArrayList);
         System.out.println("all saved");
     }
-    /**
-     * Load a List of Cargo
-     * @param actionEvent
-     */
     public void openItem(ActionEvent actionEvent) {
         tableData.clear();
         ArrayList<SaveObject> saveObjects = IO.loadE("file.txt");
@@ -239,26 +217,23 @@ public class TableController implements Initializable {
         populateTable();
     }
 
+
     @FXML
     private void deleteRowFromTable(ActionEvent event){
         int index = cargoTable.getSelectionModel().getSelectedIndex();
-        TableObject tableObj = (TableObject) cargoTable.getItems().get(index);
-        System.out.println("Print Customer Name of Deleted: " + tableObj.getCustomer());
+        TableObject so = (TableObject) cargoTable.getItems().get(index);
+        System.out.println("Print Customer Name of Deleted: " + so.getCustomer());
         cargoTable.getItems().removeAll(cargoTable.getSelectionModel().getSelectedItem());
         try {
-            deleteData(tableObj);
+            deleteData(tableObject2SaveObject(so));
         } catch (IOException e) {
             e.printStackTrace();
         }
         populateTable();
     }
 
-    /**
-     * Handle action related to input (in this case specifically only responds to
-     * keyboard event CTRL-A).
-     *
-     * @param event Input event.
-     */
+
+    /*
     @FXML
     private void handleKeyInput(final InputEvent event) {
         if (event instanceof KeyEvent) {
@@ -268,6 +243,8 @@ public class TableController implements Initializable {
             }
         }
     }
+    */
+
 
     /**
      * Perform functionality associated with "About" menu selection or CTRL-A.
