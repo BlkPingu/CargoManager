@@ -62,32 +62,44 @@ public class TableController implements Initializable {
     @FXML private RadioButton toxic;
     @FXML private RadioButton explosive;
 
-
     final ObservableList<TableObject> tableData = FXCollections.observableArrayList();
 
+    public void addData(TableObject tableObject) throws IOException {
+        Socket client = new Socket("localhost", 1337);
+        sendCode(client,'A');
+        sendObject(client,tableObject);
+        System.out.println("AddData: New Object sent to server:" + tableObject);
+        client.close();
+        System.out.println("addData() end");
+        System.out.println("----------");
 
-    public void addData(TableObject tableObject){
-        sendCode("A");
-        sendObject(tableObject);
-    }
-
-    public void deleteData(TableObject tableObject) {
-        sendCode("C");
-        sendObject(tableObject);
     }
 
     public void getServerData() throws IOException {
-        sendCode("B");
         Socket client = new Socket("localhost", 1337);
+        sendCode(client,'B');
         populateClientList(toObject(new DataInputStream(client.getInputStream()).readAllBytes()));
         client.close();
+        System.out.println("getServerData() end");
+        System.out.println("----------");
+
     }
 
-    public void sendObject(TableObject tableObject){
+    public void deleteData(TableObject tableObject) throws IOException {
+        Socket client = new Socket("localhost", 1337);
+        sendCode(client,'C');
+        sendObject(client,tableObject);
+        client.close();
+        System.out.println("deleteData() end");
+        System.out.println("----------");
+
+    }
+
+
+
+    public void sendObject(Socket socket, TableObject tableObject){
         try {
-            Socket client = new Socket("localhost", 1337);
-            new DataOutputStream(client.getOutputStream()).write(toBytes(tableObject));
-            client.close();
+            new DataOutputStream(socket.getOutputStream()).write(toBytes(tableObject));
         } catch (UnknownHostException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -95,19 +107,10 @@ public class TableController implements Initializable {
         }
     }
 
-    public void populateClientList(ArrayList<SaveObject> tol){
-        tableData.clear();
-        for (SaveObject so: tol)  tableData.add(new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties()));
-    }
-
-
-
-    public void sendCode(String code){
+    public void sendCode(Socket socket, char code){
         try {
-            Socket client = new Socket("localhost", 1337);
-            DataOutputStream dos = new DataOutputStream(client.getOutputStream());
-            dos.writeChars(code);
-            client.close();
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            dos.writeChar(code);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -119,11 +122,14 @@ public class TableController implements Initializable {
         int siz = Integer.parseInt(size.getText());
         TableObject obj = new TableObject(type.getText(), customerName.getText(), pos, siz, radioactive.isSelected(), flammable.isSelected(), toxic.isSelected(), explosive.isSelected(), pressurizedArmed() + solidArmed() + fragileArmed());
 
-        addData(obj);
+        try {
+            addData(obj);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         populateTable();
     }
 
-    //TCP fertig
     public void populateTable(){
         typeCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Type"));
         customerCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Customer"));
@@ -135,17 +141,33 @@ public class TableController implements Initializable {
         explosiveCol.setCellValueFactory(new PropertyValueFactory<TableObject, Hazard>("explosive"));
         propertiesCol.setCellValueFactory(new PropertyValueFactory<TableObject, String>("Properties"));
 
-
-        tableData.clear();
         try {
             getServerData();
         } catch (IOException e) {
             e.printStackTrace();
         }
         cargoTable.setItems(tableData);
+        System.out.println("populateTable() end");
+        System.out.println("----------");
     }
 
+    public void populateClientList(ArrayList<SaveObject> tol){
+        System.out.println("Server side List size:" + tol.size() );
+        System.out.println("Current Client list size:" + tableData.size());
 
+        tableData.clear();
+
+        System.out.println("< CLEARED CLIENT LIST >");
+        for (SaveObject so: tol){
+            TableObject to = new TableObject(so.getType(), so.getCustomer(), so.getPosition(), so.getSize(), so.getRadioactive(), so.getFlammable(), so.getToxic(), so.getExplosive(), so.getProperties());
+            tableData.add(to);
+            System.out.println("Recieving Object from Server:" + to.toString());
+        }
+        System.out.println("New Client list size:" + tableData.size());
+        System.out.println("populateClientList() end");
+        System.out.println("----------");
+
+    }
 
     public ArrayList<SaveObject> toObject (byte[] bytes) throws IOException{
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
@@ -217,18 +239,17 @@ public class TableController implements Initializable {
         populateTable();
     }
 
-
-    //---------------------------------------
-
-
-
     @FXML
     private void deleteRowFromTable(ActionEvent event){
         int index = cargoTable.getSelectionModel().getSelectedIndex();
         TableObject tableObj = (TableObject) cargoTable.getItems().get(index);
         System.out.println("Print Customer Name of Deleted: " + tableObj.getCustomer());
         cargoTable.getItems().removeAll(cargoTable.getSelectionModel().getSelectedItem());
-        deleteData(tableObj);
+        try {
+            deleteData(tableObj);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         populateTable();
     }
 
@@ -290,8 +311,6 @@ public class TableController implements Initializable {
         };
         addBtn.disableProperty().bind(bb);
     }
-
-
 
     public void bindDeleteButton(){
         deleteBtn.disableProperty().bind(Bindings.isEmpty(cargoTable.getSelectionModel().getSelectedItems()));
@@ -390,7 +409,6 @@ public class TableController implements Initializable {
         if(pressurized.isSelected()) return "P";
         else return "-";
     }
-
 
     //src https://stackoverflow.com/questions/7555564/what-is-the-recommended-way-to-make-a-numeric-textfield-in-javafx
     public void textFieldtoInt(TextField textField){

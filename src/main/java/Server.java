@@ -1,110 +1,98 @@
-import classes.TableObject;
-import classes.SaveObject;
 
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import classes.SaveObject;
 
 
-//src:https://www.youtube.com/watch?v=O7TuxKJXBII
-public class Server {
+    public class Server implements Runnable {
+        private Socket socket;
+        private Server(Socket socket){ this.socket=socket; }
 
-    private ServerSocket server;
-
-
-    public ArrayList<SaveObject> tableObjects = new ArrayList<>();
-
-
-
-
-    public byte[] toBytes(ArrayList<SaveObject> sol) throws IOException{
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutput out = null;
-        try {
-            out = new ObjectOutputStream(bos);
-            out.writeObject(sol);
-            out.flush();
-            byte[] bytes = bos.toByteArray();
-            return bytes;
-        } finally {
+        private ArrayList<SaveObject> tableObjects = new ArrayList<>();
+                /*
+                List.of(new SaveObject("Liquid", "Dave", 5, 10, true, true, false, true, "P--"),
+                        new SaveObject("Boxed", "Frank", 8, 5, false, true, false, true, "--F"),
+                        new SaveObject("Boxed", "Frank", 3, 15, false, true, false, true, "--F"),
+                        new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-")));
+                */
+        private byte[] toBytes(ArrayList<SaveObject> sol) throws IOException{
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            ObjectOutput out = null;
             try {
-                bos.close();
-            } catch (IOException ex) {
-            }
-        }
-    }
-
-
-    public ArrayList<TableObject> toObject (byte[] bytes) throws IOException{
-        ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
-        ObjectInput in = null;
-        try {
-            in = new ObjectInputStream(bis);
-            Object o = in.readObject();
-            ArrayList<TableObject> list = (ArrayList<TableObject>) o;
-            return list;
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (in != null) {
-                    in.close();
+                out = new ObjectOutputStream(bos);
+                out.writeObject(sol);
+                out.flush();
+                byte[] bytes = bos.toByteArray();
+                return bytes;
+            } finally {
+                try {
+                    bos.close();
+                } catch (IOException ex) {
                 }
-            } catch (IOException ex) {
             }
         }
-        return null;
-    }
 
+        private SaveObject bytes2SaveObject (byte[] bytes) throws IOException, ClassNotFoundException{
+            ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+            ObjectInput in = new ObjectInputStream(bis);
 
-
-    public Server(int port){
-        try {
-            server = new ServerSocket(port);
-            server.setSoTimeout(100000);
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("client disconnected");
+            return (SaveObject) in.readObject();
         }
-    }
-
-
-    public void addData(SaveObject so){
-        tableObjects.add(so);
-    }
-
-    public void running(){
-        while(true){
-            try {
-                Socket client = server.accept();
-                DataInputStream inputStream = new DataInputStream(client.getInputStream());
-                DataOutputStream outputStream = new DataOutputStream(client.getOutputStream());
-
-
-                //adding test data
-                addData(new SaveObject("Liquid", "Dave", 5, 10, true, true, false, true, "P--" ));
-                addData(new SaveObject("Boxed", "Frank", 8, 5, false, true, false, true, "--F"));
-                addData(new SaveObject("Boxed", "Frank", 3, 15, false, true, false, true, "--F"));
-                addData(new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
-                addData(new SaveObject("Dry", "James", 6, 2, false, true, false, true, "-S-"));
 
 
 
 
-                outputStream.write(toBytes(tableObjects));
+        @Override public void run(){
+            try (DataInputStream in = new DataInputStream(socket.getInputStream());
+                 DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
 
-
-                //switch()
-                client.close();
+                switch (in.readChar()) {
+                    case 'A':
+                        // add
+                        System.out.println("Case A: Listsize old > " + tableObjects.size());
+                        SaveObject so = bytes2SaveObject(in.readAllBytes()); //tut was
+                        tableObjects.add(so); //tut was
+                        System.out.println("Case A: New SO revieved: " + so);
+                        System.out.println("Case A: List >" + tableObjects.toString());
+                        System.out.println("Case A: Listsize new > " + tableObjects.size());
+                        System.out.println("----------");
+                        break;
+                    case 'B':
+                        //get server data
+                        System.out.println("Case B: List >" + tableObjects.toString());
+                        System.out.println("Case B: Sending List of size > " + tableObjects.size());
+                        out.write(toBytes(tableObjects));
+                        System.out.println("----------");
+                        break;
+                    case 'C':
+                        //delete
+                        tableObjects.remove(bytes2SaveObject(in.readAllBytes()));
+                        System.out.println("Case C: removed object");
+                        System.out.println("----------");
+                        break;
+                    default:
+                        System.out.println("ERROR! Something weird happened!");
+                        break;
+                }
             } catch (IOException e) {
                 e.printStackTrace();
-                break;
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+        public static void main(String[] args) {
+            try(ServerSocket serverSocket=new ServerSocket(1337)) {
+                while(true){
+                    Socket socket=serverSocket.accept();
+                    Server s = new Server(socket);
+                    System.out.println("Client: "+socket.getInetAddress()+":"+socket.getPort());
+                    new Thread(s).start();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
-
-    public static void main(String[] args) {
-        Server s = new Server(1337);
-        s.running();
-    }
-}
